@@ -1,23 +1,16 @@
 # Course Evaluation Analysis Pipeline
 
-A comprehensive R-based analysis pipeline for course evaluation data with statistical rigor and confidence-based tiering.
+A pipeline to rank Duke courses & professors, sourced from https://eval-duke.evaluationkit.com (data not included for copyright reasons).
 
 ## Project Overview
 
-This project analyzes ordinal survey data from course evaluations across different courses and professors. The pipeline provides:
+The format is ordinal survey data, grouped by indivual course section and with a ranking of 1-5 for most quantitive questions. The pipeline provides:
 
+- **Modular pipeline architecture** 
 - **Statistical rigor** with Wilson confidence intervals and appropriate ordinal data methods
-- **Confidence-based tiering** to indicate reliability of results based on sample sizes
+- **Confidence scores** to indicate reliability of results based on sample sizes
 - **Comprehensive analysis** including correlations between evaluation questions
 - **Reproducible workflow** from raw data to final reports
-
-## Key Features
-
-- **Modular pipeline architecture** for easy maintenance and extension
-- **Automatic confidence tier assignment** based on sample sizes
-- **Polychoric correlations** appropriate for ordinal survey data
-- **Publication-ready visualizations** and summary tables
-- **Robust error handling** and data validation
 
 ## Quick Start
 
@@ -161,25 +154,9 @@ Core packages:
 - `ggplot2` - Visualization
 - `DT` - Interactive tables
 
-## Contributing
-
-1. Follow the existing code style and naming conventions
-2. Add documentation for new functions using roxygen2 comments
-3. Test changes with the provided utility scripts in `utils/`
-4. Update documentation as needed
-
 ## Citation
 
-If you use this pipeline in academic work, please acknowledge the statistical methods:
-
-- Wilson, E.B. (1927). Probable inference, the law of succession, and statistical inference. Journal of the American Statistical Association.
-- Olsson, U. (1979). Maximum likelihood estimation of the polychoric correlation coefficient. Psychometrika.
+If you use this pipeline or the raw data  in academic work, please contact me at phillip.lin@duke.edu
 
 ## License
 apache 2.0
-
-## Support
-
-For detailed pipeline documentation, see `doc/pipelineReadme.md`.
-
-For issues or questions, please contact phillip.lin@duke.edu
