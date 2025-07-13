@@ -1,0 +1,343 @@
+---
+title: "All Departments Demo"
+author: "Statistical Evaluation Pipeline"
+format: 
+  html:
+    code-fold: false
+    toc: true
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+---
+
+# Introduction
+
+This document demonstrates the new modular evaluation analysis pipeline using for all course eval data The pipeline provides a flexible, reusable framework for analyzing course evaluations across different grouping variables and questions.
+
+## Setup
+
+```{r setup}
+# Load required libraries
+library(dplyr)
+library(binom)
+library(stringr)
+library(knitr)
+library(ggplot2)
+library(polycor)
+library(corrplot)
+library(psych)
+library(purrr)
+
+# Source our modular pipeline
+source("pipeline/main_pipeline.R")
+
+# Load the evaluation data
+all_data <- read.csv("data/all.csv")
+
+# Quick look at the data structure
+cat("Dataset dimensions:", nrow(all_data), "rows,", ncol(all_data), "columns\n")
+cat("Unique instructors:", length(unique(all_data$instructor)), "\n")
+cat("Date range:", paste(range(all_data$semester), collapse = " to "), "\n")
+
+# Show pipeline help
+show_pipeline_help()
+```
+
+## Available Questions for Analysis
+
+```{r explore-questions}
+# Discover what ordinal questions are available in our dataset
+available_questions <- get_available_questions(all_data)
+cat("Available ordinal questions for analysis:\n")
+for(i in seq_along(available_questions)) {
+  cat(sprintf("%d. %s\n", i, available_questions[i]))
+}
+```
+
+# Analysis 1: Instructor Performance Analysis
+
+Let's analyze instructor performance using the default question (overall instructor rating).
+
+```{r instructor-analysis}
+# Analyze instructors using the new pipeline interface
+instructor_results <- run_instructor_analysis(all_data)
+```
+
+## Instructor Results Details
+
+```{r instructor-details}
+# Show top performers in high confidence tier
+high_conf_instructors <- instructor_results$data |>
+  filter(confidence_tier == "High Confidence") |>
+  arrange(desc(percent_top_n)) %>%
+  select(instructor, percent_top_n, ci_lower_pct, ci_upper_pct, totalStudents, numClasses)
+
+cat("High Confidence Instructors (Top 2 Rating %):\n")
+kable(high_conf_instructors, digits = 1, 
+      col.names = c("Instructor", "% 'Good' ", "CI Lower", "CI Upper", "Total Responses", "Classes"))
+```
+
+## Visualization: Instructor Performance by Confidence Tier
+
+```{r instructor-plot}
+# Create a visualization of instructor performance by tier
+ggplot(instructor_results$data, 
+       aes(x = totalStudents, y = percent_top_n, color = confidence_tier)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_errorbar(aes(ymin = ci_lower_pct, ymax = ci_upper_pct), 
+                width = 0, alpha = 0.5) +
+  scale_color_manual(values = c(
+    "High Confidence" = "#2E8B57",
+    "Moderate Confidence" = "#FFB347", 
+    "Low Confidence" = "#FFB6C1",
+    "Preliminary Only" = "#D3D3D3"
+  )) +
+  labs(
+    title = "STA Instructor Performance: Top 2 Rating Percentage",
+    subtitle = "With Wilson 95% Confidence Intervals",
+    x = "Total Student Responses",
+    y = "Percentage Rating 4 or 5 (Top 2)",
+    color = "Confidence Tier"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+# Analysis 2: Course Quality by Subject Level
+
+Let's analyze course quality (Q5) grouped by course level (extracted from course titles).
+
+```{r course-level-analysis}
+# First, let's extract course level from course titles
+all_data_with_level <- all_data |>
+  mutate(
+    course_level = case_when(
+      str_detect(course_title, "-(1|2)\\d\\d") ~ "Undergraduate",
+      str_detect(course_title, "-(3|4)\\d\\d") ~ "Advanced Undergraduate", 
+      str_detect(course_title, "-(5|6|7|8|9)\\d\\d") ~ "Graduate",
+      TRUE ~ "Other"
+    )
+  )
+
+# Analyze course quality by subject/department using fixed tiers
+level_analysis <- run_evaluation_pipeline(
+  data = all_data,
+  group_var = "subject",
+  question_stem = "Q5_overall_course_quality",
+  top_n = 2,
+  tier_method = "fixed",  # Use fixed thresholds - quartiles don't make sense for departments
+  print_summary = TRUE,
+  plot_correlations = FALSE
+)
+```
+
+```{r}
+ggplot(level_analysis$data, aes(percent_top_n)) +
+  geom_histogram()+
+  labs(
+    title = "Dist. of"
+  )
+```
+
+# Analysis 3: Workload Analysis with Different Parameters
+
+Let's analyze course difficulty (Q8) with different parameters - top 3 levels and fixed tiers.
+
+```{r difficulty-analysis}
+# Analyze course difficulty using top 3 levels and fixed sample size tiers
+difficulty_analysis <- run_evaluation_pipeline(
+  data = all_data,
+  group_var = "instructor", 
+  question_stem = "Q8_course_difficulty",
+  top_n = 3,  # Top 3 levels (moderate to very difficult)
+  tier_method = "fixed",  # Use fixed thresholds instead of quartiles
+  conf_level = 0.99,  # 99% confidence intervals
+  print_summary = TRUE,
+  plot_correlations = FALSE
+)
+```
+
+## Comparison: Easy vs Difficult Instructors
+
+```{r difficulty-comparison}
+# Show instructors with highest and lowest difficulty ratings
+difficulty_summary <- difficulty_analysis$data %>%
+  filter(confidence_tier %in% c("High Confidence", "Moderate Confidence")) %>%
+  select(instructor, percent_top_n, ci_lower_pct, ci_upper_pct, totalStudents) %>%
+  arrange(desc(percent_top_n))
+
+cat("Most Difficult Courses (Top 10):\n")
+kable(head(difficulty_summary, 10), digits = 1,
+      col.names = c("Instructor", "Difficult %", "CI Lower", "CI Upper", "Responses"))
+
+cat("\nLeast Difficult Courses (Bottom 10):\n") 
+kable(tail(difficulty_summary, 10), digits = 1,
+      col.names = c("Instructor", "Difficult %", "CI Lower", "CI Upper", "Responses"))
+```
+
+# Analysis 4: Semester Trends
+
+Let's analyze how ratings vary by semester.
+
+```{r semester-analysis}
+# Analyze instructor ratings by semester
+semester_analysis <- run_evaluation_pipeline(
+  data = all_data,
+  group_var = "semester",
+  question_stem = "Q6_overall_instructor_rating",
+  print_summary = TRUE,
+  plot_correlations = FALSE
+)
+
+# Create a trend plot
+semester_plot_data <- semester_analysis$data %>%
+  arrange(semester)
+
+ggplot(semester_plot_data, 
+       aes(x = semester, y = percent_top_n, fill = confidence_tier)) +
+  geom_col(alpha = 0.8) +
+  geom_errorbar(aes(ymin = ci_lower_pct, ymax = ci_upper_pct), 
+                width = 0.2, color = "black") +
+  scale_fill_manual(values = c(
+    "High Confidence" = "#2E8B57",
+    "Moderate Confidence" = "#FFB347",
+    "Low Confidence" = "#FFB6C1"
+  )) +
+  labs(
+    title = "Department: Instructor Ratings by Semester",
+    subtitle = "Percentage of Top 2 Ratings (4-5 on 5-point scale)",
+    x = "Semester",
+    y = "Percentage Top 2 Ratings",
+    fill = "Confidence Tier"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+```
+
+# Analysis 5: Correlation Analysis
+
+Let's demonstrate the correlation analysis capabilities of the new pipeline.
+
+```{r correlation-analysis}
+# Run instructor analysis with correlations
+instructor_corr_analysis <- run_evaluation_pipeline(
+  data = all_data,
+  group_var = "instructor",
+  question_stem = "Q6_overall_instructor_rating",
+  include_correlations = TRUE,
+  correlation_questions = c("Q6_overall_instructor_rating", 
+                           "Q5_overall_course_quality", 
+                           "Q3_intellectually_stimulating"),
+  min_responses = 50,  # Higher threshold for correlation analysis
+  print_summary = TRUE,
+  plot_correlations = TRUE
+)
+```
+
+## Correlation Analysis Results
+
+```{r correlation-summary}
+if (!is.null(instructor_corr_analysis$correlations)) {
+  # Show significant correlations
+  sig_corr <- summarize_significant_correlations(instructor_corr_analysis$correlations)
+  
+  cat("Significant Correlations Found:\n")
+  kable(sig_corr[sig_corr$Significant, ], digits = 3,
+        col.names = c("Question 1", "Question 2", "Correlation", "Std Error", 
+                      "CI Lower", "CI Upper", "P-Value", "Significant"))
+} else {
+  cat("No correlation analysis available (insufficient data or analysis failed)\n")
+}
+```
+
+# Analysis 6: Subject-Level Correlation Analysis
+
+```{r subject-correlations}
+# Analyze correlations at the subject level
+subject_corr_analysis <- run_evaluation_pipeline(
+  data = all_data,
+  group_var = "subject",
+  question_stem = "Q6_overall_instructor_rating",
+  include_correlations = TRUE,
+  min_responses = 30,  # Lower threshold for subject analysis
+  print_summary = FALSE,  # Skip the main summary
+  plot_correlations = TRUE
+)
+```
+
+# Analysis 7: Modular Usage Example
+
+This demonstrates how to use individual pipeline modules for custom analysis workflows.
+
+```{r modular-example}
+cat("=== MODULAR PIPELINE DEMO ===\n\n")
+
+# Step 1: Aggregate data by instructor
+cat("Step 1: Aggregating evaluation data by instructor...\n")
+aggregated <- aggregate_evaluations(all_data, "instructor")
+cat("Result: Data aggregated to", nrow(aggregated), "instructors\n\n")
+
+# Step 2: Calculate proportions for Q3 (intellectually stimulating)
+cat("Step 2: Calculating top 2 proportions for Q3...\n")
+with_props <- calculate_top_n_proportion(aggregated, "Q3_intellectually_stimulating", top_n = 2)
+cat("Result: Proportions calculated\n\n")
+
+# Step 3: Add Wilson confidence intervals
+cat("Step 3: Adding Wilson confidence intervals...\n")
+with_ci <- add_wilson_ci(with_props, "top_n_count", "total_responses", conf_level = 0.95)
+cat("Result: Confidence intervals added\n\n")
+
+# Step 4: Create sample size tiers
+cat("Step 4: Creating sample size tiers...\n")
+final_data <- create_sample_tiers(with_ci, "totalStudents", method = "quartile")
+cat("Result: Tiers assigned\n\n")
+
+# Show top performers for this custom analysis
+top_stimulating <- final_data %>%
+  filter(confidence_tier == "High Confidence") %>%
+  arrange(desc(percent_top_n)) %>%
+  select(instructor, percent_top_n, ci_lower_pct, ci_upper_pct, totalStudents) %>%
+  slice(1:5)
+
+cat("Top 5 Most Intellectually Stimulating Instructors:\n")
+kable(top_stimulating, digits = 1,
+      col.names = c("Instructor", "Stimulating %", "CI Lower", "CI Upper", "Responses"))
+```
+
+# Summary and Key Features
+
+## Pipeline Benefits Demonstrated
+
+1.  **Flexible Grouping**: We analyzed by instructor, subject, course level, and semester
+2.  **Multiple Questions**: Examined instructor rating, course quality, difficulty, and intellectual stimulation
+3.  **Configurable Parameters**: Used different top N values, confidence levels, and tier methods
+4.  **Modular Design**: Showed how individual functions can be combined for custom workflows
+5.  **Rigorous Statistics**: Wilson confidence intervals and polychoric correlations provide proper statistical analysis
+6.  **Correlation Analysis**: Demonstrated inter-question relationship analysis at different aggregation levels
+7.  **Unified Interface**: Single function calls for complete analysis pipelines
+
+## Sample Size Handling
+
+The pipeline automatically creates confidence tiers based on sample sizes:
+
+-   **High Confidence**: Top 25% of sample sizes (most reliable)
+-   **Moderate Confidence**: Middle 50% of sample sizes\
+-   **Low Confidence**: Bottom quartile but still analyzable
+-   **Preliminary Only**: Very small samples (n ≥ 10) flagged as preliminary
+
+## Next Steps
+
+This modular pipeline can be easily extended to:
+
+-   Add new grouping variables (department, course type, etc.)
+-   Include additional questions from the evaluation
+-   Implement different statistical methods (other correlation types, multilevel models)
+-   Create custom visualizations and reports
+-   Compare across multiple datasets or institutions
+-   Integrate with institutional dashboards or reporting systems
+
+The pipeline provides a solid foundation for systematic, reproducible evaluation analysis while maintaining statistical rigor through proper confidence interval calculations and correlation analysis. The modular design makes it easy to adapt for different institutional needs and analysis requirements.

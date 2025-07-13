@@ -1,0 +1,36 @@
+---
+title: "course_codes"
+format: html
+---
+
+```{r}
+library(DT)
+```
+
+```{r}
+combine <- read.csv("data/all_combine.csv")
+```
+
+```{r}
+combine<- combine |>
+  aggregate_evaluations("course_code")
+```
+
+```{r}
+colnames <- names(combine)
+cat(colnames)
+
+```
+
+```{r}
+prepped <- table_prep(combine)
+```
+
+```{r}
+colnames <- names(prepped)
+cat(colnames)
+```
+
+```{r}
+write.csv(prepped,"data/treqs.csv")
+```

@@ -1,0 +1,98 @@
+---
+title: "courses"
+---
+
+## Quarto
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+```{r}
+df <- read.csv("data/all.csv")
+```
+
+```{r}
+head(df)
+```
+
+```{r}
+print_analysis_summary(instructor_analysis(df))
+```
+
+```{r}
+all_profs <- instructor_process(df)
+all_profs <- all_profs[order(all_profs$Q6_overall_instructor_rating_mean,decreasing = TRUE),]
+
+head(filter(select(all_profs,instructor,Q6_overall_instructor_rating_mean,numClasses,),numClasses >= 3),15)
+```
+
+```{r}
+ggplot(all_profs,aes(TotalStudents))+
+  geom_histogram()
+```
+
+ 
+
+```{r}
+quartiles <- quantile(all_profs$TotalStudents, probs = c(0.25, 0.5, 0.75))
+quartiles
+```
+
+```{r}
+# 1. Get file paths
+file_list <- list.files(path = "data", pattern = "\\.csv$", full.names = TRUE)
+
+# 2. Initialize an empty list
+results_list <- list()
+
+for (file_path in file_list) {
+  # 4a. Get the base filename without the directory path
+  file_name <- basename(file_path)
+
+  # 4b. Extract the part you want using gsub() to remove "sales_" and ".csv"
+ period_identifier <- gsub("_evaluations", "", file_name)
+ period_identifier <- gsub(".csv", "", period_identifier)
+  # 4c. Read the data
+  df <- read.csv(file_path)
+
+  # 4d. Add the new column
+  df$subject <- period_identifier
+
+  # 4e. Add the modified data frame to our list
+  results_list[[file_path]] <- df
+}
+
+# 5. Combine all the data frames into a single one
+final_df <- do.call(rbind, results_list)
+
+write.csv(final_df,"./data/all.csv",row.names = FALSE)
+```
+
+```{r}
+codes<-read.csv("data/all_codes.csv")
+main<-extract_course_code(df,course_title)
+unique_codes <- codes %>%
+  distinct(course_code, .keep_all = TRUE)
+```
+
+```{r}
+head(main)
+```
+
+```{r}
+combine<-left_join(main,unique_codes,by = "course_code")
+head(combine)
+```
+
+```{r}
+unique_codes_slimmer <- select(unique_codes, -subject)
+
+# Perform the join with the modified data frame
+combine <- left_join(main, unique_codes_slimmer, by = "course_code")
+```
+
+```{r}
+write.csv(combine,"data/all_combine.csv")
+```

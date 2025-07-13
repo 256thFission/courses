@@ -1,0 +1,61 @@
+---
+title: "data_splitter"
+format: html
+---
+
+```{r}
+library(DT)
+library(tidyverse)
+library(dplyr)
+df <- read.csv("../data/treqs.csv")
+```
+
+```{r}
+df_cleaned <- df %>% drop_na(ALP, CZ, NS, QS, SS, CCI, EI, STS, FL, R, W)
+write.csv(df_cleaned,"treqs_noNa.csv")
+```
+
+```{r}
+codes <- c("ALP", "CZ", "NS", "QS", "SS", "CCI", "EI", "STS", "FL", "R", "W")
+
+for (s in codes) {
+  # 1. Use the .data pronoun to correctly refer to the column name
+  temp <- filter(df, .data[[s]] == 1)
+
+  # 2. Use the paste0() function to correctly create the filename
+  file_name <- paste0(s, ".csv")
+  
+  write.csv(temp, file_name)
+}
+```
+
+```{r}
+dfs <- read.csv("NS.csv")
+dfs<- name_courses(dfs)
+
+```
+
+```{r}
+datatable(
+  select(dfs,code,title,ends_with("Avg"),starts_with("%"),class_size),
+  
+  filter = 'top',
+  
+  options = list(
+    scrollX = TRUE,
+    scrollY = TRUE
+  ),
+  rownames = FALSE
+
+) |>
+  
+  # Format all the relevant numeric columns to have 0 decimal places
+  formatRound(
+    columns = c(
+      "Stimulating Avg", "OverallQuality Avg", "Instructor Avg", 
+      "Difficulty Avg", "Hrs Avg", "% Rated Interesting", 
+      "% Rated High Quality", "% Rated Instructor Good", "% Rated Hard"
+    ), 
+    digits = 0
+  )
+```

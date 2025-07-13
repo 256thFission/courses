@@ -1,0 +1,40 @@
+# R specific
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Renviron
+
+# renv
+renv/library/
+renv/python/
+renv/staging/
+
+# Outputs
+outputs/
+*.html
+*.pdf
+*.png
+*.jpg
+*.jpeg
+
+# Temporary files
+*~
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Log files
+*.log
+
+# Data (uncomment if private or too large)
+data/
+*.csv
+
+
+# Cache
+*_cache/
+*_files/

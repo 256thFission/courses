@@ -1,0 +1,191 @@
+---
+title: "Polychoric Correlation Analysis Demo"
+format: html
+editor: visual
+---
+
+# Polychoric Correlation Analysis in Evaluation Pipeline
+
+This document demonstrates how to use the polychoric correlation analysis features added to the evaluation pipeline. Polychoric correlations are the appropriate method for analyzing relationships between ordinal variables (like Likert scale responses), as they provide unbiased estimates compared to Pearson correlations.
+
+## Setup
+
+```{r setup, message=FALSE}
+# Load the evaluation pipeline
+source("evaluation_pipeline.R")
+
+# Load sample data (assuming you have evaluation data)
+# data <- read.csv("your_evaluation_data.csv")  # Replace with your data file
+```
+
+## Key Features
+
+### 1. Standalone Correlation Analysis
+
+Calculate polychoric correlations between all ordinal questions:
+
+```{r standalone-overall, eval=FALSE}
+# Overall correlation analysis (all questions, all groups combined)
+correlations <- analyze_correlations(data)
+
+# Print summary
+print_correlation_summary(correlations)
+
+# Create visualization
+plot_polychoric_correlations(correlations, method = "circle", 
+                            title = "Overall Question Correlations")
+```
+
+### 2. Group-Specific Correlation Analysis
+
+Analyze correlations within specific groups:
+
+```{r group-specific, eval=FALSE}
+# Instructor-level correlations
+instructor_corr <- analyze_instructor_correlations(data)
+
+# Subject-level correlations  
+subject_corr <- analyze_subject_correlations(data)
+
+# Custom grouping
+semester_corr <- analyze_correlations(data, group_var = "semester")
+```
+
+### 3. Selective Question Analysis
+
+Focus on specific questions of interest:
+
+```{r selective-questions, eval=FALSE}
+# Analyze correlations between specific questions
+key_questions <- c("Q6_overall_instructor_rating", 
+                   "Q7_course_quality",
+                   "Q8_learning_objectives")
+
+focused_corr <- analyze_correlations(data, question_stems = key_questions)
+
+# Get summary of significant correlations
+sig_summary <- summarize_significant_correlations(focused_corr, alpha = 0.05)
+print(sig_summary)
+```
+
+### 4. Integration with Main Pipeline
+
+Include correlation analysis as part of the main evaluation analysis:
+
+```{r integrated-analysis, eval=FALSE}
+# Full analysis with correlations included
+full_analysis <- analyze_evaluations(
+  data = data,
+  group_var = "instructor",
+  question_stem = "Q6_overall_instructor_rating",
+  include_correlations = TRUE,
+  correlation_questions = c("Q6_overall_instructor_rating", 
+                           "Q7_course_quality", 
+                           "Q8_learning_objectives"),
+  min_responses = 50
+)
+
+# Access the correlation results
+if (!is.null(full_analysis$correlations)) {
+  print_correlation_summary(full_analysis$correlations)
+  plot_polychoric_correlations(full_analysis$correlations)
+}
+```
+
+## Understanding the Results
+
+### Correlation Matrix
+
+-   Values range from -1 to +1
+-   Closer to ±1 indicates stronger relationship
+-   Polychoric correlations assume underlying normal distribution
+
+### Significance Testing
+
+-   p-values test null hypothesis of zero correlation
+-   Standard errors are typically larger than Pearson correlations
+-   Confidence intervals provide range of plausible correlation values
+
+### Visualization
+
+-   Circle size represents correlation strength
+-   Color intensity shows direction (positive/negative)
+-   Significance stars indicate statistical significance:
+    -   \*\*\* p \< 0.001
+    -   \*\* p \< 0.01\
+    -   
+        -   p \< 0.05
+    -   . p \< 0.1
+
+## Advanced Options
+
+### Custom Parameters
+
+```{r advanced-options, eval=FALSE}
+# Fine-tuned correlation analysis
+custom_corr <- calculate_polychoric_correlations(
+  data = data,
+  question_stems = NULL,  # All questions
+  group_var = "instructor",
+  conf_level = 0.99,     # 99% confidence intervals
+  min_responses = 25     # Lower threshold for inclusion
+)
+```
+
+### Error Handling
+
+The pipeline includes robust error handling: - Questions with insufficient responses are automatically excluded - Failed correlation calculations are reported but don't stop the analysis - Warning messages indicate which correlations couldn't be computed
+
+### Performance Considerations
+
+-   Polychoric correlations are computationally intensive
+-   Consider using `min_responses` to filter questions
+-   For large datasets, focus on key questions of interest
+
+## Practical Applications
+
+### 1. Construct Validity
+
+Examine whether related questions correlate as expected:
+
+```{r construct-validity, eval=FALSE}
+# Teaching effectiveness questions should correlate
+teaching_questions <- c("Q6_overall_instructor_rating",
+                       "Q9_clear_explanations", 
+                       "Q10_helpful_feedback")
+
+teaching_corr <- analyze_correlations(data, question_stems = teaching_questions)
+```
+
+### 2. Question Redundancy
+
+Identify highly correlated questions that might be redundant:
+
+```{r redundancy-check, eval=FALSE}
+# Find very high correlations (potential redundancy)
+sig_corr <- summarize_significant_correlations(correlations)
+highly_correlated <- sig_corr[abs(sig_corr$Correlation) > 0.8, ]
+print(highly_correlated)
+```
+
+### 3. Factor Structure
+
+Explore underlying factor structure in evaluation data:
+
+```{r factor-structure, eval=FALSE}
+# Correlation patterns can suggest factor structure
+# High correlations within factors, lower between factors
+all_corr <- analyze_correlations(data)
+plot_polychoric_correlations(all_corr, method = "ellipse", 
+                            title = "Factor Structure Analysis")
+```
+
+## Comparison with Pearson Correlations
+
+The polychoric approach provides several advantages:
+
+1.  **Unbiased estimates**: Pearson correlations on ordinal data are biased toward zero
+2.  **Proper statistical inference**: Standard errors and confidence intervals are appropriate
+3.  **Underlying assumptions**: Accounts for ordinal nature of the data
+
+Note: Polychoric correlations will typically be larger in magnitude than Pearson correlations on the same ordinal data, but this represents the true underlying relationship rather than an artifact of the measurement scale.
